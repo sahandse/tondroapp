@@ -50,7 +50,7 @@ async function syncScreenshots(){
       figure.append(img,label);gallery.append(figure);
     });
   }catch{
-    const images=[...gallery.querySelectorAll<HTMLImageElement>('img')];
+    const images=Array.from(gallery.querySelectorAll<HTMLImageElement>('img'));
     let failures=0;
     images.forEach(img=>img.addEventListener('error',()=>{
       failures++;img.closest('figure')?.remove();
