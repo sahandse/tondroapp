@@ -24,3 +24,38 @@ document.querySelector('#menu')?.addEventListener('click',()=>{const nav=documen
 document.querySelectorAll('.navlinks a').forEach(a=>a.addEventListener('click',()=>document.querySelector('#navlinks')?.classList.remove('open')));
 const isSafeGithub=(url:string)=>{try{const u=new URL(url);return u.protocol==='https:'&&(u.hostname==='github.com'||u.hostname==='objects.githubusercontent.com')}catch{return false}};
 async function loadLatest(){const caption=document.querySelector('#release-caption')!,state=document.querySelector('#release-state')!,button=document.querySelector<HTMLAnchorElement>('#apk')!;try{const res=await fetch('https://api.github.com/repos/'+repo+'/releases/latest',{headers:{Accept:'application/vnd.github+json'}});if(!res.ok)throw new Error('No published release');const release=await res.json() as {tag_name?:string;html_url?:string;assets?:Array<{name:string;browser_download_url:string}>};const asset=release.assets?.find(a=>/\.apk$/i.test(a.name)&&isSafeGithub(a.browser_download_url));if(asset){button.href=asset.browser_download_url;caption.textContent='APK مستقیم · '+(release.tag_name||'آخرین نسخه');state.textContent='دانلود از فایل رسمی آخرین انتشار تندرو در گیت‌هاب.'}else{button.href=isSafeGithub(release.html_url||'')?release.html_url!:github+'/releases';caption.textContent='مشاهده آخرین انتشار';state.textContent='فایل APK مستقیمی در آخرین انتشار پیدا نشد؛ صفحه انتشارها باز می‌شود.'}}catch{caption.textContent='مشاهده انتشارهای رسمی';state.textContent='در حال حاضر دانلود مستقیم تأیید نشد. برای دریافت فایل، انتشارهای GitHub را ببینید.'}}loadLatest();
+
+
+type RepoTreeItem={path:string;type:string};
+async function syncScreenshots(){
+  const gallery=document.querySelector<HTMLElement>('.screenshot-grid');
+  if(!gallery)return;
+  try{
+    const response=await fetch('https://api.github.com/repos/sahandse/tondroapp/git/trees/main?recursive=1',{headers:{Accept:'application/vnd.github+json'}});
+    if(!response.ok)throw new Error('Screenshot listing unavailable');
+    const data=await response.json() as {tree?:RepoTreeItem[]};
+    const images=(data.tree||[]).filter(item=>item.type==='blob'&&/\.(jpg|jpeg|png|webp|avif)$/i.test(item.path)&&(/اسکرین[ -]?شات|screenshots?|100180657|images?/i.test(item.path)));
+    const sorted=images.sort((a,b)=>{
+      const weight=(p:string)=>/downloads|home|6574/i.test(p)?0:/new-download|6575/i.test(p)?1:/batch|6576/i.test(p)?2:/settings|6573/i.test(p)?3:4;
+      return weight(a.path)-weight(b.path);
+    }).slice(0,12);
+    if(!sorted.length){gallery.innerHTML='<p class="gallery-empty">تصاویر واقعی به‌زودی در این بخش نمایش داده می‌شوند.</p>';return;}
+    gallery.innerHTML='';
+    const titles=['مدیریت دانلودها','دانلود جدید','دانلود گروهی','تنظیمات حرفه‌ای'];
+    sorted.forEach((item,index)=>{
+      const figure=document.createElement('figure'),img=document.createElement('img'),label=document.createElement('figcaption');
+      img.loading='lazy';img.alt='تصویر واقعی محیط تندرو '+(index+1);
+      img.src='https://raw.githubusercontent.com/sahandse/tondroapp/main/'+item.path.split('/').map(encodeURIComponent).join('/');
+      label.textContent=titles[index]||'نمای برنامه';
+      figure.append(img,label);gallery.append(figure);
+    });
+  }catch{
+    const images=[...gallery.querySelectorAll<HTMLImageElement>('img')];
+    let failures=0;
+    images.forEach(img=>img.addEventListener('error',()=>{
+      failures++;img.closest('figure')?.remove();
+      if(failures===images.length&&gallery)gallery.innerHTML='<p class="gallery-empty">هنوز تصویری برای نمایش پیدا نشد.</p>';
+    },{once:true}));
+  }
+}
+syncScreenshots();
